@@ -81,8 +81,7 @@ filter_create <- function(r = NULL,
   # distance in pixels to the central cell of the matrix
   dist_mat <- sqrt((matrix(c(1:size_pix), nrow = size_pix, ncol = size_pix, byrow = F) - (radius_pix + 1))^2+
                      (matrix(c(1:size_pix), nrow = size_pix, ncol = size_pix, byrow = T) - (radius_pix + 1))^2)
-  # image(dist_mat)
-  # plot(terra::rast(dist_mat))
+ 
   
   # apply function
   if(type == "exp_decay") {
@@ -326,18 +325,18 @@ mcWood<-function(x){
     
     
     edgeRast<-edgeLCM
-    #plot(edgeNew)
+   
     edgeRast[edgeRast!=i]<-0
     edgeRast[edgeRast!=0]<-1
-    #plot(edgeRast)
+    
     
     edgeRastZero<-edgeRast-1
-    #plot(edgeRastZero)
+    
     edgeRastZero[edgeRastZero==-1]<-1
     
     edgeRast<-extend(edgeRast,c(100,100),fill=0)
     edgeRast[is.na(edgeRast)]<-0
-    # 
+    
     filterEdge<-filter_create(r=edgeRast,type="exp_decay",radius=i, normalize = TRUE)
     
     
@@ -437,44 +436,44 @@ mcWood<-function(x){
   
 
   
-  alpha05k= -log(0.05) / 1000
-  alpha1k= -log(0.05) / 5000
-  alpha5k= -log(0.05) / 10000
+  alpha1k= -log(0.05) / 1000
+  alpha5k= -log(0.05) / 5000
+  alpha10k= -log(0.05) / 10000
   
   
   
 
   # negative exponential of colonization kernel x distance get probability
-  A.prob05k <- exp(-alpha05k * distMat) 
   A.prob1k <- exp(-alpha1k * distMat) 
   A.prob5k <- exp(-alpha5k * distMat) 
+  A.prob10k <- exp(-alpha10k * distMat) 
   
   # set diag to zero
   diag(A.prob1k) <- 1 
-  diag(A.prob05k) <- 1 
   diag(A.prob5k) <- 1 
+  diag(A.prob10k) <- 1 
   
   # final matrix for connectivity graph
-  A.prob05k <- as.matrix(A.prob05k)
   A.prob1k <- as.matrix(A.prob1k)
   A.prob5k <- as.matrix(A.prob5k)
+  A.prob10k <- as.matrix(A.prob10k)
   
   # final matrix for connectivity graph
-  graph.Aprob05k <- graph_from_adjacency_matrix(A.prob05k, mode="undirected", weighted=T)
   graph.Aprob1k <- graph_from_adjacency_matrix(A.prob1k, mode="undirected", weighted=T)
   graph.Aprob5k <- graph_from_adjacency_matrix(A.prob5k, mode="undirected", weighted=T)
+  graph.Aprob10k <- graph_from_adjacency_matrix(A.prob10k, mode="undirected", weighted=T)
   
   ## calculate RHI
   
   # calculate all shortest paths between nodes
-  pstar.mat05k <- distances(graph.Aprob05k, weights= -log(E(graph.Aprob05k)$weight))
   pstar.mat1k <- distances(graph.Aprob1k, weights= -log(E(graph.Aprob1k)$weight))
   pstar.mat5k <- distances(graph.Aprob5k, weights= -log(E(graph.Aprob5k)$weight))
+  pstar.mat10k <- distances(graph.Apro10k, weights= -log(E(graph.Aprob10k)$weight))
   
   # back-transform to probabilities of connectedness
-  pstar.mat05k <- exp(-pstar.mat05k)                                                   
-  pstar.mat1k <- exp(-pstar.mat1k)  
+  pstar.mat1k <- exp(-pstar.mat1k)                                                   
   pstar.mat5k <- exp(-pstar.mat5k)  
+  pstar.mat10k <- exp(-pstar.mat10k)  
   # get study area in m2
   AL <- ncell(land)*res(land)[1]^2
   
@@ -484,26 +483,25 @@ mcWood<-function(x){
   areaSum <- sum(areaN)
   areaMean<-mean(areaN,na.rm=T)
   # get product of all patch areas ij and multiply by probabilities above
-  PCmat05k <- outer(areaN,areaN) * pstar.mat05k 
   PCmat1k <- outer(areaN,areaN) * pstar.mat1k 
-  PCmat5k <- outer(areaN,areaN) * pstar.mat5k 
+  PCmat6k <- outer(areaN,areaN) * pstar.mat5k 
+  PCmat10k <- outer(areaN,areaN) * pstar.mat10k 
   
-  pcMatSum05k <- sum(PCmat05k)
   pcMatSum1k <- sum(PCmat1k)
   pcMatSum5k <- sum(PCmat5k)
+  pcMatSum10k <- sum(PCmat10k)
   
   # divide by total area of the study squared to get the PC metric  
-  EHI05k <- sqrt(pcMatSum05k) / as.numeric(AL) 
   EHI1k <- sqrt(pcMatSum1k) / as.numeric(AL) 
   EHI5k <- sqrt(pcMatSum5k) / as.numeric(AL) 
+  EHI10k <- sqrt(pcMatSum10k) / as.numeric(AL) 
   
-  EHI05k<-EHI05k*100
   EHI1k<-EHI1k*100
   EHI5k<-EHI5k*100
+  EHI10k<-EHI10k*100
 
-  EHI1k
   
-  df.i<-data.frame(EHI1=(EHI05k-baselineEHI1)/baselineEHI1*100,EHI5=(EHI1k-baselineEHI5)/baselineEHI5*100,EHI10=(EHI5k-baselineEHI10)/baselineEHI10*100,
+  df.i<-data.frame(EHI1=(EHI1k-baselineEHI1)/baselineEHI1*100,EHI5=(EHI5k-baselineEHI5)/baselineEHI5*100,EHI10=(EHI10k-baselineEHI10)/baselineEHI10*100,
                    meanDist=meanDist,meanArea=areaMean,sumArea=areaSum,npatch=n.patch,ripProp=propRip,ripPropPC=(propRip-baselinePropRip)/baselinePropRip*100,
                    sumAreaPC=areaNew/baselineArea*100,propStake=ppProp)
   
@@ -511,7 +509,7 @@ mcWood<-function(x){
   
   print(x)
 
-  print(df.i)
+  
   return(df.i)
 }  
 
@@ -526,10 +524,11 @@ testWood<-lapply(nWood,mcWood)
 dffin<-do.call("rbind",testWood)
 
 
-dffin
+
 
 
 write.csv(dffin,"woodData25_20_EdgeFinal.csv")
+
 
 
 
